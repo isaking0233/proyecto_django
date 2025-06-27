@@ -11,37 +11,68 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 import requests
 from .models import JuegoFavorito
+from django.views.decorators.csrf import csrf_exempt
+
 
 
 RAWG_API_KEY = 'cd63501d89c844d7aee3e52140a8676a'
 
 @login_required
+@csrf_exempt
 def recomendacion_videojuegos(request):
+    juegos = []
     query = request.GET.get('q', '')
     genero = request.GET.get('genero', '')
-    page = request.GET.get('page', '1')
+    page = int(request.GET.get('page', 1))
 
-    url = f'https://api.rawg.io/api/games?key={RAWG_API_KEY}&page={page}&page_size=9'
+    url = "https://api.rawg.io/api/games"
+    params = {
+        'key': RAWG_API_KEY,
+        'page_size': 12,
+        'page': page
+    }
+
     if query:
-        url += f'&search={query}'
+        params['search'] = query
     if genero:
-        url += f'&genres={genero}'
+        params['genres'] = genero
 
-    response = requests.get(url)
-    juegos = response.json().get('results', []) if response.status_code == 200 else []
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        raw_data = response.json().get('results', [])
+        for j in raw_data:
+            juegos.append({
+                'id': j['id'],
+                'name': j['name'],
+                'background_image': j.get('background_image', ''),
+                'rating': j.get('rating', 0),
+                'released': j.get('released', 'Desconocido'),
+                'genres': j.get('genres', []),
+                'platforms': j.get('platforms', []),
+                'ratings_count': j.get('ratings_count', 0)
+            })
+    else:
+        messages.error(request, "Error al obtener los juegos desde la API.")
 
+    # Guardar favorito si se envía formulario POST
     if request.method == 'POST':
         juego_id = request.POST.get('juego_id')
         nombre = request.POST.get('nombre')
         imagen = request.POST.get('imagen')
+        from .models import JuegoFavorito  # asegúrate de tenerlo importado
+
         if not JuegoFavorito.objects.filter(user=request.user, juego_id=juego_id).exists():
             JuegoFavorito.objects.create(user=request.user, juego_id=juego_id, nombre=nombre, imagen=imagen)
+            messages.success(request, f"'{nombre}' fue añadido a tus favoritos.")
+        else:
+            messages.info(request, f"'{nombre}' ya está en tus favoritos.")
+        return redirect('recomendacion_videojuegos')
 
     return render(request, 'usuarios/recomendacion.html', {
         'juegos': juegos,
         'query': query,
         'genero': genero,
-        'page': int(page)
+        'page': page
     })
 
 @login_required

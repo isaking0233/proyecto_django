@@ -5,4 +5,5 @@ class UsuariosConfig(AppConfig):
     name = 'usuarios'
 
     def ready(self):
-        import usuarios.signals  # 👈 Esto activa las señales
+        # Importamos las señales (perfil + superusuario por defecto)
+        import usuarios.signals

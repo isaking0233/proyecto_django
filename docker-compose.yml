@@ -1,11 +1,11 @@
-version: '3.9'
-
 services:
   web:
     build: .
-    ports:
-      - "8000:8000"
+    # Arranca el servidor Django en modo desarrollo
+    command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
-    environment:
-      - DEBUG=True
+    working_dir: /app
+    ports:
+      - "8000:8000"
+    # Si usas SQLite, no necesitas otro servicio de BD.
